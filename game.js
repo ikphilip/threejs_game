@@ -66,7 +66,7 @@ const update = elapsed => {
   // Count the number of collisions.
   if (detectCollision() === true && state.currentCollision === false) {
     state.currentCollision = true
-    state.counter += 1
+    addPoint()
     state.bug.x = randomX()
     state.bug.y = randomY()
 
@@ -102,11 +102,21 @@ const onTouch = event => {
 }
 
 const onClick = event => {
-  let x = event.clientX - window.innerWidth / 2;
-  let y = -event.clientY + window.innerHeight / 2;
+  // if mouse is down, get the x,y coordinates.
+  if (event.buttons === 1) {
 
-  rotatePlayerToCoords(x, y)
-  movePlayerToCoords(x, y)
+    let x = event.clientX - window.innerWidth / 2;
+    let y = -event.clientY + window.innerHeight / 2;
+
+    rotatePlayerToCoords(x, y)
+    movePlayerToCoords(x, y)
+  }
+}
+
+const addPoint = () => {
+  state.counter += 1
+
+  document.querySelector('#score').innerText = state.counter
 }
 
 // Function to move the player to the touch coordinates.
