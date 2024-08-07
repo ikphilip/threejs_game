@@ -101,6 +101,14 @@ const onTouch = event => {
   movePlayerToCoords(x, y)
 }
 
+const onClick = event => {
+  let x = event.clientX - window.innerWidth / 2;
+  let y = -event.clientY + window.innerHeight / 2;
+
+  rotatePlayerToCoords(x, y)
+  movePlayerToCoords(x, y)
+}
+
 // Function to move the player to the touch coordinates.
 // Fraction is the speed of the movement.
 const movePlayerToCoords = (x, y, fraction = 0.1) => {
@@ -156,3 +164,7 @@ window.addEventListener('resize', () => {
 // Add listener for touch events.
 window.addEventListener('touchstart', onTouch);
 window.addEventListener('touchmove', onTouch);
+
+// Add listener for mouse events.
+window.addEventListener('mousedown', onClick);
+window.addEventListener('mousemove', onClick);
