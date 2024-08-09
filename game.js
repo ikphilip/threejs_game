@@ -8,17 +8,39 @@ document.body.appendChild(renderer.domElement)
 // Game variables.
 const playerRadius = 48
 const bugRadius = 16
+const visionRadius = playerRadius + 48
+const mapXSize = 1920;
+const mapYSize = 1080;
+
+// Create a canvas to draw the darkness texture
+const darknessCanvas = document.createElement('canvas');
+darknessCanvas.width = window.innerWidth;
+darknessCanvas.height = window.innerHeight;
+const darknessContext = darknessCanvas.getContext('2d');
+
+// Draw initial darkness (solid black)
+darknessContext.fillStyle = 'rgba(00, 00, 33, 1)';
+darknessContext.fillRect(0, 0, darknessCanvas.width, darknessCanvas.height);
+
+// Create a darkness texture from the canvas
+const darknessTexture = new THREE.CanvasTexture(darknessCanvas);
+const darknessMaterial = new THREE.MeshBasicMaterial({
+  map: darknessTexture,
+  transparent: true,
+});
+
+// Create the darkness plane (same size as the map)
+const darknessGeometry = new THREE.PlaneGeometry(mapXSize, mapYSize);
+const darknessPlane = new THREE.Mesh(darknessGeometry, darknessMaterial);
+// darknessPlane.rotation.x = -Math.PI / 2;
+darknessPlane.position.z = 0.02; // Slightly above the map
+scene.add(darknessPlane);
 
 // Create a circle. This is bat.
 const circleGeometry = new THREE.CircleGeometry(playerRadius, 36)
-const invisible = new THREE.MeshBasicMaterial({ visible: false })
-const player = new THREE.Mesh(circleGeometry, invisible)
-scene.add(player)
-
-// Create another circle. This is the visible bat.
 const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 })
-const playerVisible = new THREE.Mesh(circleGeometry, circleMaterial)
-scene.add(playerVisible)
+const player = new THREE.Mesh(circleGeometry, circleMaterial)
+scene.add(player)
 
 // Create another circle. This is the bug object.
 const circleGeometry2 = new THREE.CircleGeometry(bugRadius, 36)
@@ -34,36 +56,34 @@ scene.add(tree)
 
 // Add arrow to represent directionality.
 // https://threejs.org/docs/#api/en/helpers/ArrowHelper
-const dir = new THREE.Vector3( 1, 0, 0 )
+const dir = new THREE.Vector3(1, 0, 0)
 
 // normalize the direction vector (convert to vector of length 1).
 dir.normalize()
 
-const origin = new THREE.Vector3( 0, 0, 0 )
+const origin = new THREE.Vector3(0, 0, 0)
 const length = 50
 const hex = 0xff0000
 
-const arrowHelper = new THREE.ArrowHelper( dir, origin, length, hex )
-playerVisible.add( arrowHelper )
+const arrowHelper = new THREE.ArrowHelper(dir, origin, length, hex)
+player.add(arrowHelper)
 
 // Set the camera position
 camera.position.z = 1
 
+// Random x and y coordinates.
 const randomX = () => {
   return Math.random() * window.innerWidth - window.innerWidth / 2
 }
-
 const randomY = () => {
   return Math.random() * window.innerHeight - window.innerHeight / 2
 }
 
+// Set the player position.
+// Reveal the area around the player.
 const updatePlayerPosition = () => {
   player.position.x = state.player.x
   player.position.y = state.player.y
-
-  playerVisible.position.x = state.player.x
-  playerVisible.position.y = state.player.y
-  playerVisible.position.z = state.player.z
 }
 
 // Initial game state.
@@ -72,10 +92,36 @@ const state = {
   counter: 0,
   currentBugCollision: false,
   currentTreeCollision: false,
-  player: { x: 0, y: -100, z: 1 },
+  player: { x: 0, y: -100, z: 0 },
   playerNextPosition: { x: 0, y: -100, z: 0 },
   touch: { x: 0, y: 0, z: 0 },
   tree: { x: 0, y: 0, z: 0 },
+}
+
+// Reveal the area around a point.
+// Check for a last reveal position and refill it with darkness.
+const revealArea = (x, y) => {
+  if (state.lastRevealPosition) {
+    const lastX = (state.lastRevealPosition.x + mapXSize / 2) / mapXSize * darknessCanvas.width;
+    const lastY = (-state.lastRevealPosition.y + mapYSize / 2) / mapYSize * darknessCanvas.height;
+
+    darknessContext.globalCompositeOperation = 'destination-over'; // Erase mode
+    darknessContext.beginPath();
+    darknessContext.arc(lastX, lastY, visionRadius + 1, 0, 2 * Math.PI);
+    darknessContext.fill();
+  }
+
+  const canvasX = (x + mapXSize / 2) / mapXSize * darknessCanvas.width;
+  const canvasY = (-y + mapYSize / 2) / mapYSize * darknessCanvas.height;
+
+  darknessContext.globalCompositeOperation = 'destination-out'; // Erase mode
+  darknessContext.beginPath();
+  darknessContext.arc(canvasX, canvasY, visionRadius, 0, 2 * Math.PI);
+  darknessContext.fill();
+
+  state.lastRevealPosition = { x: x, y: y };
+
+  darknessTexture.needsUpdate = true;
 }
 
 // Function to update the game state
@@ -101,8 +147,10 @@ const update = elapsed => {
     state.currentBugCollision = false
   }
 
+  // Player movement functions.
   movePlayerToNextCoords()
   updatePlayerPosition()
+  revealArea(state.player.x, state.player.y)
 }
 
 // Function to render the game state
@@ -141,12 +189,15 @@ const onClick = event => {
   }
 }
 
+// Function to add a point to the score.
 const addPoint = () => {
   state.counter += 1
 
   document.querySelector('#score').innerText = state.counter
 }
 
+// Function to move the player to the next position.
+// If the player collides with a tree, move the player away from the tree.
 const movePlayerToNextCoords = () => {
   if (detectTreeCollision() === true) {
     movePlayerAwayFromTree()
@@ -182,9 +233,9 @@ const rotatePlayerToCoords = (x, y) => {
 
   let angle = Math.atan2(dy, dx)
   player.rotation.z = angle
-  playerVisible.rotation.z = angle
 }
 
+// Function to detect collision between two objects.
 const detectObjectsCollision = (object1, object2) => {
   object1.geometry.computeBoundingBox()
   object2.geometry.computeBoundingBox()
