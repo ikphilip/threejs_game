@@ -7,6 +7,7 @@ document.body.appendChild(renderer.domElement)
 
 // Game variables.
 const playerRadius = 48
+const playerStartOpacity = 0.33
 const bugRadius = 16
 const visionRadius = playerRadius + 48
 const mapXSize = 1920;
@@ -38,7 +39,7 @@ scene.add(darknessPlane);
 
 // Create a circle. This is bat.
 const circleGeometry = new THREE.CircleGeometry(playerRadius, 36)
-const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 })
+const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: playerStartOpacity })
 const player = new THREE.Mesh(circleGeometry, circleMaterial)
 scene.add(player)
 
@@ -98,6 +99,36 @@ const state = {
   tree: { x: 0, y: 0, z: 0 },
 }
 
+// get the distance between 2 objects.
+const getDistance = (object1, object2) => {
+  let dx = object2.x - object1.x
+  let dy = object2.y - object1.y
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+// Get the angle between 2 objects.
+const getAngle = (object1, object2) => {
+  return Math.atan2(object2.y - object1.y, object2.x - object1.x)
+}
+
+// Update player material color.
+const updatePlayerColor = (color) => {
+  const distance = getDistance(state.player, state.bug)
+
+  if (distance < 200) {
+    player.material.opacity = 1
+  }
+  else if (distance < 300) {
+    player.material.opacity = 0.75
+  }
+  else if (distance < 400) {
+    player.material.opacity = 0.5
+  }
+  else {
+    player.material.opacity = playerStartOpacity
+  }
+}
+
 // Reveal the area around a point.
 // Check for a last reveal position and refill it with darkness.
 const revealArea = (x, y) => {
@@ -150,6 +181,7 @@ const update = elapsed => {
   // Player movement functions.
   movePlayerToNextCoords()
   updatePlayerPosition()
+  updatePlayerColor()
   revealArea(state.player.x, state.player.y)
 }
 
@@ -213,11 +245,8 @@ const calculatePlayerNextCoords = (x, y, fraction = 0.1) => {
   state.touch.x = x
   state.touch.y = y
 
-  let dx = state.touch.x - state.player.x
-  let dy = state.touch.y - state.player.y
-
-  let angle = Math.atan2(dy, dx)
-  let distance = Math.sqrt(dx * dx + dy * dy)
+  let distance = getDistance(state.player, state.touch)
+  let angle = getAngle(state.player, state.touch)
   let moveDistance = fraction * distance
   let moveX = moveDistance * Math.cos(angle)
   let moveY = moveDistance * Math.sin(angle)
@@ -228,10 +257,7 @@ const calculatePlayerNextCoords = (x, y, fraction = 0.1) => {
 
 // Function to rotate player object to face the touch coordinates.
 const rotatePlayerToCoords = (x, y) => {
-  let dx = x - state.player.x
-  let dy = y - state.player.y
-
-  let angle = Math.atan2(dy, dx)
+  let angle = getAngle(state.player, { x: x, y: y })
   player.rotation.z = angle
 }
 
@@ -262,11 +288,8 @@ const detectTreeCollision = () => {
 
 // Disallow the player from getting closer to the tree's position.
 const movePlayerAwayFromTree = () => {
-  let dx = state.tree.x - state.player.x
-  let dy = state.tree.y - state.player.y
-  let distance = Math.sqrt(dx * dx + dy * dy)
-
-  let angle = Math.atan2(dy, dx)
+  let distance = getDistance(state.player, state.tree)
+  let angle = getAngle(state.player, state.tree)
   let moveDistance = 0.1 * distance
   let moveX = moveDistance * Math.cos(angle)
   let moveY = moveDistance * Math.sin(angle)
